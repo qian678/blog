@@ -32,8 +32,9 @@ urlpatterns = [
     #urlconf_module是 子应用的路由
     #app_name 子应用的名字
     #namespace命令空间
-    path('',include(('users.urls','users'),namespace='users'))
+    path('',include(('users.urls','users'),namespace='users')),
     # path('',log),
+    path('',include(('home.urls','home'),namespace='home')),
 ]
 
 
