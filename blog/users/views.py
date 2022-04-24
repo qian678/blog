@@ -4,7 +4,9 @@ from django.shortcuts import render
 from django.db import DatabaseError
 # Create your views here.
 from django.views import View
+from django.shortcuts import redirect
 from django.http.response import HttpResponseBadRequest
+from django.urls import reverse
 
 # 注册视图
 class RegisterView(View):
@@ -57,8 +59,15 @@ class RegisterView(View):
             logger.error(e)
             return HttpResponseBadRequest('注册失败')
         # 4. 返回响应跳转到指定页面
-        return HttpResponse('注册成功，重定向到首页')
-from django.http.response import HttpResponseBadRequest
+        from django.contrib.auth import login
+        login(request,user)
+        #redirect是重定向
+        #reverse是通过namespace:name来获取视图对应的路由
+        response= redirect(reverse('home:index'))
+        response.set_cookie('is_login',True)
+        response.set_cookie('username', user.username,max_age=7*24*3600)
+
+        return response
 from libs.captcha.captcha import captcha
 from django_redis import get_redis_connection
 from django.http.response import HttpResponse
@@ -148,3 +157,6 @@ class SmsCodeView(View):
         send_message(mobile,[sms_code,5],1)
         # 6.返回响应
         return JsonResponse({'code':RETCODE.OK,'errmsg':'短信发送成功'})
+class LoginView(View):
+    def get(self,request):
+        return render(request,'login.html')
