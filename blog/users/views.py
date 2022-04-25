@@ -7,6 +7,8 @@ from django.views import View
 from django.shortcuts import redirect
 from django.http.response import HttpResponseBadRequest
 from django.urls import reverse
+from django.contrib.auth import authenticate
+from django.contrib.auth import login
 
 # 注册视图
 class RegisterView(View):
@@ -160,3 +162,54 @@ class SmsCodeView(View):
 class LoginView(View):
     def get(self,request):
         return render(request,'login.html')
+    def post(self,request):
+        '''
+        1.接收参数
+        2.参数的验证
+          2.1 验证参数是否齐全
+          2.2 参数是否正确
+          连接mysql库，读取mysql数据信息
+          判断用户名是否存在
+          判断密码是否正确
+        3.用户状态的登录
+        4.状态的保持
+        5.根据用户选择的是否记住登录状态来判断
+        6.为了首页显示，我们设置了一些cookie信息
+        7.返回响应
+        :param request:
+        :return:
+        '''
+        # 1.接收参数
+        mobile= request.POST.get('mobile')
+        password = request.POST.get('password')
+        remember = request.POST.get('remember')
+        # 2.参数的验证
+        #   2.1 验证手机号
+        if not re.match(r'^1[3-9]\d{9}$',mobile):
+            return HttpResponseBadRequest('手机号不符合规则')
+        #   2.2 验证密码
+        if not re.match(r'[0-9A-Za-z]{8,20}$',password):
+            return HttpResponseBadRequest('请输入8-20位密码，密码是数字，字母')
+        #   连接mysql库，读取mysql数据信息
+        #   判断用户名是否存在
+        #   判断密码是否正确
+        # 3.用户状态的登录,采用系统自带的方法进行认证，如果用户名密码正确，返回user，否则返回None
+        # 默认的认证字段是用户名，现在我们是手机号，需要对模型进行修改
+        user=authenticate(mobile=mobile,password=password)
+        if user is None:
+            return HttpResponseBadRequest('用户名或者密码错误')
+        # 4.状态的保持
+        login(request,user)
+        # 5.根据用户选择的是否记住登录状态来判断
+        response= redirect(reverse('home:index'))
+        if remember != 'on':
+            request.session.set_expiry(0)
+            response.set_cookie('is_login',True)
+            response.set_cookie('username',user.username,max_age=14*24*3600)
+        else:
+            request.session.set_expiry(None)
+            response.set_cookie('is_login',True,max_age=14*24*3600)
+            response.set_cookie('username',user.username,max_age=14*24*3600)
+        # 6.为了首页显示，我们设置了一些cookie信息
+        # 7.返回响应
+        return response

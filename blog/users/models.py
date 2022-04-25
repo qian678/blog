@@ -8,6 +8,7 @@ class User(AbstractUser):
     avatar=models.ImageField(upload_to='avatar/%Y%m%d',blank=True)
     #简介信息
     user_desc=models.CharField(max_length=500,blank=True)
+    USERNAME_FIELD = 'mobile'
     class Meta:
        db_table='tb_users' #修改表名
        verbose_name='用户管理' #admin后台显示
