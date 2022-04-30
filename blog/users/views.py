@@ -9,7 +9,7 @@ from django.http.response import HttpResponseBadRequest
 from django.urls import reverse
 from django.contrib.auth import authenticate
 from django.contrib.auth import login
-
+from django.contrib.auth import logout
 # 注册视图
 class RegisterView(View):
     def get(self, request):
@@ -213,3 +213,69 @@ class LoginView(View):
         # 6.为了首页显示，我们设置了一些cookie信息
         # 7.返回响应
         return response
+class LogoutView(View):
+    def get(self,request):
+        #1. session数据清除
+        logout(request)
+        #2. 删除部分cookies数据
+        response = redirect(reverse('home:index'))
+        response.delete_cookie('is_login')
+        #3. 跳转到首页
+        return response
+class Forgetpassword(View):
+    def get(self,requset):
+        return render(requset,'forget_password.html')
+    def post(self,request):
+        """
+        1. 接收数据
+        2. 验证数据
+            2.1 验证参数是否齐全
+            2.2 手机号格式是否正确
+            2.3 密码是否符合格式
+            2.4 密码和确认密码是否一致
+            2.5 短信验证码是否和redis中的一致
+        3. 保存注册信息
+        4. 返回响应跳转到指定页面
+        :param request:
+        :return:
+        """
+        # 1. 接收数据
+        mobile =request.POST.get('mobile')
+        password =request.POST.get('password')
+        password2 =request.POST.get('password2')
+        smscode =request.POST.get('sms_code')
+        # 2. 验证数据
+        #     2.1 验证参数是否齐全
+        if not all([mobile,password,password2,smscode]):
+            return HttpResponseBadRequest('缺少必要的参数')
+        #     2.2 手机号格式是否正确
+        if not re.match(r'^1[3-9]\d{9}$',mobile):
+            return HttpResponseBadRequest('手机号不符合规则')
+        #     2.3 密码是否符合格式
+        if not re.match(r'[0-9A-Za-z]{8,20}$',password):
+            return HttpResponseBadRequest('请输入8-20位密码，密码是数字，字母')
+        #     2.4 密码和确认密码是否一致
+        if password != password2:
+            return HttpResponseBadRequest('两次密码不一致')
+        #     2.5 短信验证码是否和redis中的一致
+        redis_conn=get_redis_connection('default')
+        redis_sms_code=redis_conn.get('sms:%s' % mobile)
+        if redis_sms_code is None:
+            return HttpResponseBadRequest('短信验证码也过期')
+        if smscode != redis_sms_code.decode():
+            return HttpResponseBadRequest('短信验证码不存在')
+        try:
+            user=User.objects.get(mobile=mobile)
+        except User.DoesNotExist:
+            try:
+                 user.objects.create_user(username=mobile,mobile=mobile,password=password)
+            except Exception:
+                 return HttpResponseBadRequest('修改失败，请稍候再试')
+        else:
+            user.set_password(password)
+            user.save()
+        response = redirect(reverse('users:login'))
+        return response
+class UserCenterView(View):
+    def get(self,request):
+        return render(request,'center.html')
